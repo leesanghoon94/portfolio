@@ -3,11 +3,11 @@ kind: Service
 metadata:
   name: frontend
 spec:
-  ports:
-    - port: 80
   selector:
     app: frontend
-
+  ports:
+    - port: 80
+      targetPort: 80
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -25,6 +25,42 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: leesanghoon94/my-front:latest
+          image: leesanghoon94/front-local:v0.0.3
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
+#           volumeMounts:
+#             - name: nginx-config
+#               mountPath: /etc/nginx/templates/default.conf.template
+#               subPath: default.conf.template
+#       volumes:
+#         - name: nginx-config
+#           configMap:
+#             name: nginx-conf
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: nginx-conf
+# data:
+#   default.conf.template: |
+#     server {
+#       listen       80;
+#       listen  [::]:80;
+#       server_name  localhost;
+
+#       location /api/ {
+#           proxy_pass  http://server.default.svc.cluster.local:3333/;
+#       }
+
+#       location / {
+#           root   /usr/share/nginx/html;
+#           index  index.html index.htm;
+#           try_files $uri /index.html;
+#       }
+
+#       error_page   500 502 503 504  /50x.html;
+#       location = /50x.html {
+#           root   /usr/share/nginx/html;
+#       }
+#     }

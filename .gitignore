@@ -238,6 +238,18 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-#idea
-.idea
 # End of https://www.toptal.com/developers/gitignore/api/terraform,macos,node,react,git
+
+Locust_2025-12-08-07h23_my-locustfile.py_http___192.168.219.103_3333.html
+
+ansible
+
+docker
+docker-compose.yaml
+elasticsearch
+kafka
+kubernetes
+manifest
+mysql
+rabbitMQ
+terraform

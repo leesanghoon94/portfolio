@@ -1,7 +1,0 @@
-FROM node:16
-WORKDIR /app
-COPY *.js ./
-COPY package* ./
-RUN npm install
-EXPOSE 3333
-CMD [ "npm", "start"]

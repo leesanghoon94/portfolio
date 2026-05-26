@@ -1,0 +1,55 @@
+pipeline {
+    agent any
+    tools {nodejs "nodejs"}
+    
+    
+    stages {
+        stage('git check') {
+            steps {
+                git branch: 'main', credentialsId: 'github-token', url: 'https://github.com/leesanghoon94/myApp.git'
+            }
+        }
+        
+        stage('slack start') {
+            steps {
+             slackSend (color: "#439FE0", message: "Build Started!!: ${env.JOB_NAME} ${env.BUILD_NUMBER}")
+            }
+        }
+        stage ('clean') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage ('git clone') {
+            steps {
+                sh  """
+                    git clone https://github.com/leesanghoon94/myApp.git
+                    """
+            }
+        }
+        
+        stage ('npm') {
+            steps {
+                sh  """
+                    cd my/frontend
+                    npm install
+                    npm run build
+                    """
+            }
+        }
+        
+        stage ('deploy ansible') {
+            steps {
+                sh  """
+                    cd my/frontend/ansible
+                    ansible-playbook -i inventory playbook.yaml
+                    """
+            }
+        }
+        stage ('end') {
+            steps {
+                slackSend (message:"Build finished - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)")
+            }
+        }
+    }
+}

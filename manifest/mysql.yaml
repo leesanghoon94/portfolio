@@ -1,4 +1,17 @@
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /data/mysql
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mysql-pvc
@@ -8,7 +21,6 @@ spec:
   resources:
     requests:
       storage: 1Gi
-
 ---
 apiVersion: v1
 kind: Service
@@ -39,14 +51,35 @@ spec:
       containers:
         - image: mysql:latest
           name: mysql
-          env:
-            - name: MYSQL_ROOT_PASSWORD
-              value: "12345678"
-            - name: MYSQL_DATABASE
-              value: "article1"
           ports:
             - containerPort: 3306
               name: mysql
+          env:
+            - name: MYSQL_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: db-env
+                  key: mysql_user
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: db-env
+                  key: mysql_database
+            - name: MYSQL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: db-env
+                  key: mysql_host
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                    name: mysql-password
+                    key: MYSQL_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-password
+                  key: MYSQL_ROOT_PASSWORD
           volumeMounts:
             - name: mysql-storage
               mountPath: /var/lib/mysql
@@ -54,3 +87,4 @@ spec:
         - name: mysql-storage
           persistentVolumeClaim:
             claimName: mysql-pvc
+        
