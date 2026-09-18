@@ -5,11 +5,3 @@ output "cluster_id" {
 output "cluster_primary_security_group_id" {
   value = module.eks.cluster_primary_security_group_id
 }
-
-
-output "public_subnet" {
-  value = module.vpc.public
-}
-output "vpc_id" {
-  value = module.vpc.vpc_id
-}

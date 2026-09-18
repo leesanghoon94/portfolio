@@ -1,7 +1,0 @@
-name: test
-
-services:
-  foo:
-    image: busybox
-    command: echo "I'm running ${COMPOSE_PROJECT_NAME}"
-    entrypoint: tail -f > /dev/null

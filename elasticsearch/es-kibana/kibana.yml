@@ -1,8 +1,0 @@
-server.name: kibana
-server.port: 5601
-server.host: "0.0.0.0"
-
-elasticsearch.hosts: ["http://es01:9200"]
-
-monitoring.ui.container.elasticsearch.enabled: true
-# 테이너화된 애플리케이션의 성능을 정확하게 모니터링하려면 이 설정을 사용하는 것이 좋습니다.

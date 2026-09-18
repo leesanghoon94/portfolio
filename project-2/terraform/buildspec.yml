@@ -1,0 +1,53 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 650251731474.dkr.ecr.ap-northeast-2.amazonaws.com
+      - REPOSITORY_URI=650251731474.dkr.ecr.ap-northeast-2.amazonaws.com/frontend
+      - REPOSITORY_URI2=650251731474.dkr.ecr.ap-northeast-2.amazonaws.com/backend
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+  build:
+    commands:
+      - echo Build started
+      - echo Building the Docker image...
+      - cd frontend
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+      - echo Building the Docker image...
+      - cd ..
+      - cd server
+      - docker build -t $REPOSITORY_URI2:latest .
+      - docker tag $REPOSITORY_URI2:latest $REPOSITORY_URI2:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - echo Build completed
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI2:latest
+      - docker push $REPOSITORY_URI2:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - cd ..
+      - printf '[{"name":"front","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > frontend-imagedefinitions.json
+      - printf '[{"name":"back","imageUri":"%s"}]' $REPOSITORY_URI2:$IMAGE_TAG > backend-imagedefinitions.json
+      - pwd
+      - ls -al
+      - find . -name "*imagedefinitions.json"
+      - cat *imagedefinitions.json
+artifacts:
+  files:
+    - frontend-imagedefinitions.json
+    - backend-imagedefinitions.json
+  # secondary-artifacts:
+  #   DefinitionArtifact:
+  #     files:
+  #       - appspec.yaml
+  #       - taskdef.json
+  #   ImageArtifact:
+  #     files:
+  #       - imagedefinitions.json

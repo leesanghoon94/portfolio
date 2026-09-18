@@ -1,8 +1,16 @@
-# project-2 (ecs)
+# Project-2
+
+### 개요 : ECS 기반 컨테이너 배포 환경 구축
+
+project-1의 단일 EC2 기반 서비스 환경을 컨테이너 기반 아키텍처로 전환하고 ECS을 활용하여 장애 복구, 자동 확장, 무중단배포 가능한 고가용성 인프라를 구축 했습니다.
+
+---
 
 ### 아키텍처
 
-![ECS 아키텍처 이미지](image.png)
+![ECS 아키텍처 이미지](./ecs-architecture.png)
+
+---
 
 ### 사용법
 
@@ -14,82 +22,136 @@ terraform plan
 terraform apply
 ```
 
-### 개요
+---
+
+### Infrastructure as Code
+
+aws provider을 지원하는 Terraform을 활용하여 VPC, Security Group, ALB, ECS , Auto Scaling Group , IAM Role 리소스 구축
+
+- 콘솔 수작업 최소화를 통한 휴먼 에러 감소
+- 인프라 변경 이력 관리 문서화
+- 동일한 인프라 환경 재현 가능
 
 ---
 
-- 초기 MVP 배포 시간을 EC2 단독 구성 대비 시간 단축
-- Auto Scaling 적용으로 피크 트래픽 시 응답 지연 감소
-- 무중단 배포 전략을 통해 서비스 중단 없이 배포 가능
+### 기존 EC2 단일 배포 환경의 한계
 
-생성된 서비스 역할 및 인스턴스 프로파일은 AWS CLI를 통해 생성된 모든 추가 EC2 환경에 재사용할 수 있습니다. 이를 위해 다음 AWS CLI 명령어를 실행하여 서비스 역할 및 인스턴스 프로파일을 생성합니다.
+project-1의 기존 환경의 문제점
 
-#### **클러스터 설정**
-
-- 클러스터 이름: ecs
-- 기본 네임스페이스: (MyEcsCluster) - 자동으로 클러스터네임이 네임스페이스가 된다.
-
-#### **인프라 설정**
-
-- **EC2 인스턴스**
-
-  > fargate는 서버리스 방식으로 컨테이너를 관리할 필요 없이 태스크 단위로 리소스를 자동 할당받아 사용할 수 있어 관리 오버헤드가 적다
-  > 하지만 프리티어 ec2인스턴스를 사용을 위해 fargate(serverless)대신에 Amazon Linux 2 사용.
-  - **Auto Scaling Group**: 자동 확장 그룹 설정
-  - **프로비저닝 모델**: 온디맨드(On-Demand)
-  - **운영 체제**: Amazon Linux 2 (Kernel 5.10)
-  - **인스턴스 타입**: c5.large
-  - **Desired Capacity**:
-    - 최소: 0
-    - 최대: 2
-  - **SSH 키 페어**: (키 페어 정보)
-  - **EBS 루트 볼륨 크기**: 30GB
-
-- **모니터링 설정**
-  - **Container Insights**: 비활성화
-
-### **태스크 정의 구성**
-
-- **태스크 정의 패밀리**: (예시: MyTaskDefinition)
-- **인프라 요구 사항**:
-  - **런치 타입**: AWS Fargate, EC2 인스턴스
-  - **운영 체제/아키텍처**: Linux/x86_64
-  - **네트워크 모드**: awsvpc, bridge, default, host, none
-  - **태스크 크기**:
-    - CPU: 1vCPU
-    - 메모리: 3GB
-
-### **서비스 설정**
-
-- **컴퓨트 구성**
-  - **용량 제공자 전략**: 기본 제공자 사용
-  - **배포 설정**:
-    - 애플리케이션 유형: (애플리케이션 정보)
-    - 서비스 유형: Replica 또는 Daemon
-    - 원하는 태스크 수: 1
-  - **배포 실패 감지**:
-    - Amazon ECS 배포 회로 차단기 사용
-    - 실패 시 롤백 활성화
-
-### **네트워크 설정**
-
-- **ELB 인바운드 포트**: 80, 3333
-- **RDS 포트**: 3306
+- 장애 발생 시 서비스 중단
+- 서비스 규모가 증가할 경우 확장성 가용성 측면에서 한계가 있었습니다.
+- ec2 장애 발생 시 수동 복구 필요
 
 ---
 
-cloud9를 통해서 프론트엔드,백앤드서버를 ecr에 빌드후 올려주기 위해서 aws-cli를 통해서 iam role 만들어준다.
+### 컨테이너 기반 컨테이너 오케스트레이션
 
-AWS CLI를 사용하여 **Systems Manager**의 인스턴스 프로파일을 관리하고, 수신되지 않는 EC2 환경을 생성할 수 있습니다. 이때 `create-environment-ec2` 명령어에서 `--connection-type` 옵션을 `CONNECT_SSM`으로 설정합니다.
+ECS는 컨테이너 애플리케이션을 쉽게 배포, 관리 및 확대할 수 있도록 도와주는 완전 관리형 컨테이너 오케스트레이션 서비스입니다.
 
-해당 옵션을 사용하면 **AWSCloud9SSMAccessRole** 서비스 역할 및 **AWSCloud9SSMInstanceProfile**이 자동으로 생성되지 않습니다. 필요한 서비스 프로파일과 인스턴스 프로파일을 수동으로 생성하려면 다음 중 하나를 수행해야 합니다.
+**왜 ECS를 선택했는가?**
 
-```bash
-aws iam create-role --role-name AWSCloud9SSMAccessRole --path /service-role/ --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"Service": ["ec2.amazonaws.com","cloud9.amazonaws.com"]},"Action": "sts:AssumeRole"}]}'
+- 장애 발생 시 자동 복구
+- 서비스 가용성 향상
+- 운영 부담 감소
+- AWS 완전 관리형 서비스
+- ALB, CloudWatch, Auto Scaling 연동 용이
+- MVP 단계 서비스에 적합
 
-aws iam attach-role-policy --role-name AWSCloud9SSMAccessRole --policy-arn arn:aws:iam::aws:policy/AWSCloud9SSMInstanceProfile
+---
 
-aws iam create-instance-profile --instance-profile-name AWSCloud9SSMInstanceProfile --path /cloud9/
+### ECS Service Auto Scaling
 
-aws iam add-role-to-instance-profile --instance-profile-name AWSCloud9SSMInstanceProfile --role-name AWSCloud9SSMAccessRole
-```
+트래픽이 증가할 때마다 직접 Task 수를 조정하는 것은 운영 부담이 크고 대응 속도가 느립니다
+
+ECSServiceAverageCPUUtilization 지표를 대상으로 Target Tracking Scaling을 구현했습니다
+
+- 트래픽 자동 대응
+- 리소스 비용 절감
+
+---
+
+### ECS Capacity Provider + Auto Scaling Group
+
+ECS Service Auto Scaling은 Task 개수를 늘려줄 수 있지만, Task를 실행할 EC2 인스턴스를 자동으로 늘려주지는 않습니다.
+
+예를 들어 CPU 사용률 증가로 인해 Desired Count가 2개에서 10개로 증가하더라도 클러스터에 충분한 EC2 리소스가 없다면 Task는 `PENDING` 상태로 남게 됩니다.
+
+현재 용량 공급자는 세가지
+
+1. fargate only
+2. fargate and managed instances
+3. fargate and self-managed instances
+
+이 프로젝트에선 특정 인스턴스 유형과 지정 AMI가 필요하기 때문에 **Fargate and Self-managed instances** 선택을했습니다.
+
+|                    | Managed Instances           | EC2 Auto Scaling(self-managed instances) |
+| ------------------ | --------------------------- | ---------------------------------------- |
+| Launch Template    | AWS 관리                    | 직접 관리                                |
+| Auto Scaling Group | AWS 관리                    | 직접 관리                                |
+| 패치               | AWS 관리                    | 직접 관리                                |
+| 인스턴스 타입      | Use ECS default, Use custom | 직접 관리                                |
+| Spot               | 지원                        | 지원                                     |
+
+---
+
+### Amazon ECR
+
+Frontend와 Backend 이미지를 Amazon ECR Private Repository에서 관리했습니다.
+
+- Vulnerability Scanning - 취약점 사전 점검
+
+---
+
+### Container Insights 기반 모니터링 환경 구축
+
+CloudWatch Container Insights를 활성화하여 ECS 클러스터 및 개별 컨테이너 레벨까지 모니터링했습니다.
+
+#### Container Insight Metrics
+
+| Metric             |       Value |
+| ------------------ | ----------: |
+| CPU utilization    |      0.356% |
+| Memory utilization |        0.1% |
+| Network RX         | 166 bytes/s |
+| Network TX         | 150 bytes/s |
+| Storage Read       |   0 bytes/s |
+| Storage Write      |  8.192 KB/s |
+| Service Tasks      |     1 count |
+
+#### ECS Metrics
+
+| Metric             |  Value |
+| ------------------ | -----: |
+| CPU utilization    | 0.732% |
+| Memory utilization | 0.342% |
+
+- 태스크 수준 문제 해결
+- 컨테이너 수준 리소스 최적화
+- 컨테이너 상태 평가
+- 애플리케이션 성능 모니터링
+- 작업 모니터링
+
+---
+
+### CI/CD 구현
+
+AWS CodeSeries 중에 CodeCommit을 github으로 대체후 CICD 파이프라인을 구축
+
+- CodePipeline -> 소스 리포지토리에 변경을 가하면 CodePipeline이 자동으로 변경 내용을 감지. 그러한 변경 내용을
+  빌드하고 테스트를 구성하는 경우에는 테스트를 실행후 서버로 배포
+- CodeBuild -> 도커 빌드후 ecr에 이미지 push
+- CodeDeploy -> 업데이트된 이미지로 ecs service로 자동배포
+
+---
+
+### 무중단 배포
+
+ECS서비스의 스케줄러가 task의 상태 이상을 감지하며 관리한다.
+
+#### Rolling Update(default)
+
+- 서비스 다운타임을 없애기 위해 신규 버전의 Task를 먼저 실행하고, ALB가 정상 헬스 체크를 확인한 후 구버전 Task를 단계적으로 종료
+
+- Deployment Circuit Breaker & Automatic Rollback: 신규 배포 중 애플리케이션 에러로 인해 헬스 체크가 지속적으로 실패할 경우, 배포를 즉시 중단하고 수동 개입 없이 직전의 안정적인 버전으로 자동 롤백되 작업이 안정 상태에 도달하는지 확인하는 메커니즘를 가지고 있다.
+
+배포 실패 시에도 수동 개입 없이 서비스를 복구할 수 있었으며(자동장애조치), 안정적인 운영과 높은 가용성을 확보했습니다.
